@@ -36,7 +36,13 @@
     constructor({ onRun, onCancel }) {
       this.onRun = onRun;
       this.onCancel = onCancel;
-      this.state = { phase: 'idle', cases: [], selected: 0, runtime: null, runtimeState: 'idle' };
+      this.state = { phase: 'idle', cases: [], selected: 0, runtime: null, runtimeState: 'idle', diff: true };
+      this.expanded = new Set(); // `${case}:${field}` keys of values shown in full
+      this.overflow = new ResizeObserver((entries) => {
+        for (const { target } of entries) {
+          target.parentElement?.classList.toggle('overflows', target.scrollHeight > COLLAPSED_HEIGHT);
+        }
+      });
 
       this.host = el('div', { id: 'localleet-panel-host' });
       this.root = this.host.attachShadow({ mode: 'open' });
@@ -177,6 +183,7 @@
         verdict: 'pending',
       }));
       this.state.paramNames = paramNames;
+      this.expanded.clear();
       if (this.state.selected >= cases.length) this.state.selected = 0;
       this.show();
       this.panel.classList.remove('collapsed');
@@ -224,29 +231,19 @@
       if (compileError) return { cls: 'bad', title: 'Compile Error' };
       const verdicts = cases.map((c) => c.verdict);
       const time = cases.reduce((t, c) => t + (c.result?.timeMs ?? 0), 0);
-      const sub = `${cases.length} case${cases.length === 1 ? '' : 's'} · ${formatMs(time)} total (local)`;
+      const sub = `Runtime: ${formatMs(time)}`;
       if (verdicts.includes('timeout')) return { cls: 'bad', title: 'Time Limit Exceeded', sub };
       if (verdicts.includes('runtime_error')) return { cls: 'bad', title: 'Runtime Error', sub };
       if (verdicts.includes('harness_error')) return { cls: 'bad', title: 'Invalid Testcase', sub };
-      if (verdicts.includes('mismatch')) {
-        const ok = verdicts.filter((v) => v.startsWith('match')).length;
-        const known = verdicts.filter((v) => v.startsWith('match') || v === 'mismatch').length;
-        return { cls: 'bad', title: 'Wrong Answer', sub: `${ok}/${known} match expected · ${sub}` };
-      }
+      if (verdicts.includes('mismatch')) return { cls: 'bad', title: 'Wrong Answer', sub };
       if (verdicts.length && verdicts.every((v) => v.startsWith('match'))) {
-        return { cls: 'good', title: 'Accepted', sub: `all match expected · ${sub}` };
+        return { cls: 'good', title: 'Accepted', sub };
       }
-      const known = verdicts.filter((v) => v.startsWith('match')).length;
-      return {
-        cls: 'neutral',
-        title: 'Finished',
-        sub: known
-          ? `${known} match expected, ${verdicts.length - known} without known output · ${sub}`
-          : `no expected outputs known for these inputs · ${sub}`,
-      };
+      return { cls: 'neutral', title: 'Finished', sub };
     }
 
     renderBody() {
+      this.overflow.disconnect();
       const { phase, cases, error, notice, compileError } = this.state;
       const parts = [];
       if (phase === 'idle') {
@@ -263,8 +260,15 @@
       if (notice) parts.push(el('p', { class: 'notice' }, notice));
       if (phase === 'running' || phase === 'done') {
         const s = this.summary();
+        const canDiff = cases.some((c) => c.verdict === 'mismatch' && c.expected != null);
         parts.push(
-          el('div', { class: `summary ${s.cls}` }, el('strong', {}, s.title), s.sub && el('span', {}, s.sub)),
+          el(
+            'div',
+            { class: `summary ${s.cls}` },
+            el('strong', {}, s.title),
+            s.sub && el('span', {}, s.sub),
+            canDiff && this.renderDiffToggle(),
+          ),
         );
         if (compileError) parts.push(el('pre', { class: 'error-box' }, compileError));
         if (cases.length && !compileError) {
@@ -284,39 +288,152 @@
             {
               class: `tab ${i === this.state.selected ? 'active' : ''}`,
               role: 'tab',
-              title: VERDICT_LABEL[c.verdict],
+              title: [VERDICT_LABEL[c.verdict], c.result?.timeMs != null && formatMs(c.result.timeMs)]
+                .filter(Boolean)
+                .join(' · '),
               onclick: () => {
                 this.state.selected = i;
                 this.renderBody();
               },
             },
-            el('span', { class: `dot ${c.verdict}` }),
+            caseIcon(c.verdict),
             `Case ${i + 1}`,
           ),
         ),
       );
     }
 
+    renderDiffToggle() {
+      const on = this.state.diff;
+      const button = el('button', {
+        class: `diff-toggle ${on ? 'on' : ''}`,
+        title: on ? 'Hide differences' : 'Highlight differences',
+        'aria-pressed': String(on),
+        onclick: () => {
+          this.state.diff = !this.state.diff;
+          this.renderBody();
+        },
+      });
+      button.append(svgIcon('0 0 16 16', ICON_DIFF));
+      return button;
+    }
+
     renderCase(c) {
       const names = this.state.paramNames ?? [];
       const r = c.result;
-      const field = (label, value, cls = '') =>
-        el('div', { class: 'field' }, el('div', { class: 'label' }, label), el('pre', { class: `value ${cls}` }, value));
-      const out = [
-        el('div', { class: `verdict ${c.verdict}` }, VERDICT_LABEL[c.verdict],
-          r && r.timeMs != null && el('span', { class: 'time' }, formatMs(r.timeMs))),
-        el('div', { class: 'label' }, 'Input'),
-        ...c.lines.map((line, i) => field(`${names[i] ?? `arg${i + 1}`} =`, line)),
-      ];
-      if (r?.error) out.push(field('Error', r.error, 'error'));
-      if (r?.stdout) out.push(field('Stdout', r.stdout));
-      if (r && r.output != null) {
-        const cls = c.verdict === 'mismatch' ? 'bad' : c.verdict.startsWith('match') ? 'good' : '';
-        out.push(field('Output', r.output, cls));
-      }
-      if (c.expected != null) out.push(field('Expected (from problem examples)', c.expected));
+      // Mirrors LeetCode's Test Result layout: a label above one or more boxes.
+      const box = (key, value, boxLabel) =>
+        el('div', { class: 'box' }, boxLabel && el('div', { class: 'box-label' }, boxLabel), this.renderValue(key, value));
+      const section = (label, ...boxes) =>
+        el('div', { class: 'section' }, el('div', { class: 'label' }, label), el('div', { class: 'boxes' }, boxes));
+      const at = `${this.state.selected}:`;
+      const out = [];
+      if (r?.error) out.push(el('pre', { class: 'error-box' }, r.error));
+      out.push(
+        section('Input', ...c.lines.map((line, i) => box(`${at}in${i}`, line, `${names[i] ?? `arg${i + 1}`} =`))),
+      );
+      if (r?.stdout) out.push(section('Stdout', box(`${at}stdout`, r.stdout)));
+      const diff =
+        this.state.diff && c.verdict === 'mismatch' && r?.output != null && c.expected != null
+          ? highlightDiff(r.output, c.expected)
+          : null;
+      if (r && r.output != null) out.push(section('Output', box(`${at}output`, diff?.actual ?? r.output)));
+      if (c.expected != null) out.push(section('Expected', box(`${at}expected`, diff?.expected ?? c.expected)));
       return el('div', { class: 'case' }, out);
     }
+
+    // A value that LeetCode-style collapses to a few lines with "View more".
+    // Whether it overflows is only known once laid out (and the tab may be
+    // hidden), so a ResizeObserver toggles the button.
+    renderValue(key, value) {
+      const expanded = this.expanded.has(key);
+      const pre = el('pre', { class: 'value' }, value);
+      const more = el(
+        'button',
+        {
+          class: 'more',
+          onclick: () => {
+            if (expanded) this.expanded.delete(key);
+            else this.expanded.add(key);
+            this.renderBody();
+          },
+        },
+        svgIcon('0 0 512 512', ICON_CHEVRONS),
+        expanded ? 'View less' : 'View more',
+      );
+      const clip = el('div', { class: `clip ${expanded ? 'expanded' : ''}` }, pre, more);
+      this.overflow.observe(pre);
+      return clip;
+    }
+  }
+
+  // LeetCode's per-case icons (Font Awesome square-xmark / check).
+  const ICON_FAIL =
+    'M64 32C28.7 32 0 60.7 0 96v320c0 35.3 28.7 64 64 64h320c35.3 0 64-28.7 64-64V96c0-35.3-28.7-64-64-64H64zm79 143' +
+    'c9.4-9.4 24.6-9.4 33.9 0l47 47 47-47c9.4-9.4 24.6-9.4 33.9 0s9.4 24.6 0 33.9l-47 47 47 47c9.4 9.4 9.4 24.6 0 33.9' +
+    's-24.6 9.4-33.9 0l-47-47-47 47c-9.4 9.4-24.6 9.4-33.9 0s-9.4-24.6 0-33.9l47-47-47-47c-9.4-9.4-9.4-24.6 0-33.9z';
+  const ICON_PASS =
+    'M438.6 105.4c12.5 12.5 12.5 32.8 0 45.3l-256 256c-12.5 12.5-32.8 12.5-45.3 0l-128-128c-12.5-12.5-12.5-32.8 0-45.3' +
+    's32.8-12.5 45.3 0L160 338.7 393.4 105.4c12.5-12.5 32.8-12.5 45.3 0z';
+  // Values taller than this (8 lines) collapse behind "View more", as on LeetCode.
+  const COLLAPSED_HEIGHT = 160;
+  // Font Awesome chevrons-down; flipped for "View less".
+  const ICON_CHEVRONS =
+    'M239 465c9.4 9.4 24.6 9.4 33.9 0L465 273c9.4-9.4 9.4-24.6 0-33.9s-24.6-9.4-33.9 0l-175 175L81 239' +
+    'c-9.4-9.4-24.6-9.4-33.9 0s-9.4 24.6 0 33.9L239 465zM47 81L239 273c9.4 9.4 24.6 9.4 33.9 0L465 81' +
+    'c9.4-9.4 9.4-24.6 0-33.9s-24.6-9.4-33.9 0l-175 175L81 47c-9.4-9.4-24.6-9.4-33.9 0s-9.4 24.6 0 33.9z';
+  // LeetCode's "Diff" toggle glyph.
+  const ICON_DIFF =
+    'M1.221 12.377a.421.421 0 01-.421-.421V3.622c0-.233.188-.422.421-.422h1.525c.756 0 1.328.206 1.714.619.396.412.593' +
+    '.997.593 1.753v4.292c0 .86-.21 1.495-.631 1.907-.413.404-1.01.606-1.792.606H1.221zm.894-7.94v6.703h.605c.37 0 .632' +
+    '-.09.787-.27.154-.19.232-.482.232-.877V5.572c0-.361-.073-.64-.22-.838-.146-.198-.412-.296-.799-.296h-.605zM7.019 ' +
+    '12.377a.421.421 0 01-.422-.421V6.264c0-.233.189-.422.422-.422h.472c.232 0 .421.19.421.422v5.692a.421.421 0 01-.421' +
+    '.421h-.472zm0-7.862a.421.421 0 01-.422-.421v-.472c0-.233.189-.422.422-.422h.472c.232 0 .421.189.421.422v.472a.421' +
+    '.421 0 01-.421.42h-.472zM10.125 12.377a.421.421 0 01-.421-.421V6.874H9.48a.421.421 0 01-.42-.422v-.188c0-.233.188' +
+    '-.422.42-.422h.224v-.889c0-.318.047-.584.141-.799.095-.223.224-.408.387-.554.155-.146.33-.25.529-.31.206-.06.416' +
+    '-.09.631-.09h.184c.233 0 .422.189.422.422v.394a.421.421 0 01-.421.422h-.172c-.258 0-.387.15-.387.45v.954h.98v1.032' +
+    'h-.98v5.082a.421.421 0 01-.421.421h-.472z' +
+    'M13.327 12.377a.421.421 0 01-.421-.421V6.874h-.99V5.842h.99v-.889c0-.318.047-.584.141-.799a1.53 1.53 0 01.387-.554' +
+    'c.155-.146.33-.25.528-.31.207-.06.417-.09.632-.09h.184c.233 0 .422.189.422.422v.394a.421.421 0 01-.421.422h-.172' +
+    'c-.258 0-.387.15-.387.45v.954h.558c.233 0 .422.19.422.422v.188a.421.421 0 01-.421.422h-.559v5.082a.421.421 0 01' +
+    '-.421.421h-.472z';
+  const FAILED = new Set(['mismatch', 'runtime_error', 'timeout', 'harness_error']);
+
+  function caseIcon(verdict) {
+    const d = verdict.startsWith('match') ? ICON_PASS : FAILED.has(verdict) ? ICON_FAIL : null;
+    if (!d) return el('span', { class: `dot ${verdict}` });
+    return svgIcon('0 0 448 512', d, `mark ${d === ICON_PASS ? 'good' : 'bad'}`);
+  }
+
+  function svgIcon(viewBox, d, cls) {
+    const NS = 'http://www.w3.org/2000/svg';
+    const svg = document.createElementNS(NS, 'svg');
+    svg.setAttribute('viewBox', viewBox);
+    if (cls) svg.setAttribute('class', cls);
+    const path = document.createElementNS(NS, 'path');
+    path.setAttribute('d', d);
+    svg.append(path);
+    return svg;
+  }
+
+  // Marks the spans of `actual` and `expected` that differ (everything
+  // between their common prefix and common suffix), like LeetCode's diff.
+  function highlightDiff(actual, expected) {
+    let start = 0;
+    while (start < actual.length && start < expected.length && actual[start] === expected[start]) start++;
+    let end = 0;
+    while (
+      end < actual.length - start &&
+      end < expected.length - start &&
+      actual[actual.length - 1 - end] === expected[expected.length - 1 - end]
+    ) {
+      end++;
+    }
+    const mark = (text, cls) => {
+      const mid = text.slice(start, text.length - end);
+      return mid ? [text.slice(0, start), el('span', { class: cls }, mid), text.slice(text.length - end)] : text;
+    };
+    return { actual: mark(actual, 'diff removed'), expected: mark(expected, 'diff added') };
   }
 
   function formatMs(ms) {

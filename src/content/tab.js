@@ -69,7 +69,13 @@
         this.container?.remove();
         this.container = document.createElement('div');
         this.container.id = 'localleet-tab-content';
-        this.container.style.cssText = 'width:100%;height:100%;overflow:hidden;';
+        // `contain: size` keeps our content from growing the placeholder (a
+        // flex item with min-height: auto), which would push the tabset's tab
+        // bar out of view; the panel scrolls internally instead.
+        this.container.style.cssText = 'width:100%;height:100%;overflow:hidden;contain:size;';
+        // The tabset has a wheel listener that calls preventDefault (native
+        // panes are outside it, ours is inside), which would block scrolling.
+        this.container.addEventListener('wheel', (e) => e.stopPropagation(), { passive: true });
         placeholder.append(this.container);
       }
       if (this.content.parentElement !== this.container) {

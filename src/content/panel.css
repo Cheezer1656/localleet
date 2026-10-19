@@ -13,11 +13,15 @@
   --text: #262626;
   --muted: rgba(60, 60, 67, 0.6);
   --accent: #ffa116;
+  --blue: #007aff;
+  --gray: #8a8a8a;
   --good: #2db55d;
   --bad: #ef4743;
   --bad-mark: #f8615c;
   --warn: #c27c0e;
   --mono: Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;
+
+  color-scheme: light;
 
   position: fixed;
   right: 16px;
@@ -54,6 +58,9 @@
   --good: #2cbb5d;
   --bad: #ef4743;
   --warn: #ffb800;
+  --blue: #0a84ff;
+
+  color-scheme: dark;
 }
 
 .panel[hidden] {
@@ -239,13 +246,9 @@ button:focus-visible {
 
 .mark {
   width: 14px;
-  height: 14px;
+  height: 12px;
   flex: none;
-  fill: none;
-  stroke: currentColor;
-  stroke-width: 1.8;
-  stroke-linecap: round;
-  stroke-linejoin: round;
+  fill: currentColor;
 }
 
 .mark.good {
@@ -293,34 +296,6 @@ button:focus-visible {
   gap: 16px;
 }
 
-.verdict {
-  display: flex;
-  align-items: baseline;
-  gap: 8px;
-  color: var(--muted);
-  font-size: 12px;
-  line-height: 16px;
-  font-weight: 500;
-  margin-bottom: -4px;
-}
-
-.verdict.match,
-.verdict.match-any-order {
-  color: var(--good);
-}
-
-.verdict.mismatch,
-.verdict.runtime_error,
-.verdict.timeout,
-.verdict.harness_error {
-  color: var(--bad);
-}
-
-.verdict .time {
-  color: var(--muted);
-  font-weight: 400;
-}
-
 .section {
   display: flex;
   flex-direction: column;
@@ -334,10 +309,10 @@ button:focus-visible {
   font-weight: 500;
 }
 
-.label .note {
-  margin-left: 6px;
-  font-weight: 400;
-  opacity: 0.8;
+.boxes {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
 }
 
 .box {
@@ -363,12 +338,72 @@ pre {
 .value {
   margin: 0 12px;
   color: var(--text);
-  max-height: 240px;
-  overflow: auto;
 }
 
-.value.error {
+/* Long values collapse to 8 lines with a "View more" / "View less" toggle. */
+.clip:not(.expanded).overflows .value {
+  max-height: 160px;
+  overflow: hidden;
+}
+
+.more {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  width: 100%;
+  margin-top: 4px;
+  font: 12px/16px var(--mono);
+  color: var(--muted);
+}
+
+.more:hover {
+  color: var(--text);
+}
+
+.clip.overflows .more {
+  display: flex;
+}
+
+.more svg {
+  width: 12px;
+  height: 12px;
+  fill: currentColor;
+}
+
+.clip.expanded .more svg {
+  transform: rotate(180deg);
+}
+
+.diff.removed {
   color: var(--bad);
+}
+
+.diff.added {
+  color: var(--good);
+}
+
+/* LeetCode's "Diff" toggle: blue when on, gray when off. */
+.diff-toggle {
+  display: inline-flex;
+  margin-left: auto;
+  padding: 4px;
+  border-radius: 4px;
+  color: var(--gray);
+}
+
+.diff-toggle.on {
+  color: var(--blue);
+}
+
+.diff-toggle:hover {
+  background: var(--fill-2);
+}
+
+.diff-toggle svg {
+  width: 16px;
+  height: 16px;
+  fill: currentColor;
 }
 
 .error-box {
@@ -409,4 +444,8 @@ pre {
 
 .panel.docked .body {
   padding: 12px 20px 16px;
+}
+
+.case .error-box {
+  margin: 0;
 }
