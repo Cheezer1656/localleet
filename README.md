@@ -1,5 +1,7 @@
 # LocalLeet
 
+**DISCLAIMER: This project was made with Claude**
+
 A browser extension for Chrome and Firefox that runs LeetCode testcases **locally, in your browser**, using
 WebAssembly builds of language toolchains. Python (via [Pyodide](https://pyodide.org)) and C++ (via Clang/LLD from
 [YoWASP](https://yowasp.org)) are supported, and the code is laid out so other languages can be added.
