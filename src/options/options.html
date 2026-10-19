@@ -1,0 +1,29 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>LocalLeet options</title>
+    <style>
+      :root { color-scheme: light dark; }
+      body { font: 14px/1.5 system-ui, sans-serif; margin: 16px; min-width: 320px; }
+      label { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; }
+      input[type='number'] { width: 6em; }
+      .hint { color: GrayText; font-size: 12px; margin: -8px 0 12px; }
+      #saved { color: #2cbb5d; visibility: hidden; }
+    </style>
+  </head>
+  <body>
+    <label>
+      Per-testcase time limit
+      <input id="timeout" type="number" min="1" max="120" step="1" /> seconds
+    </label>
+    <p class="hint">Code running in WebAssembly is slower than on LeetCode's judge; allow some slack. For C++, compile time isn't counted.</p>
+    <label>
+      <input id="preload" type="checkbox" />
+      Load the toolchain as soon as a problem page opens
+    </label>
+    <p class="hint">Makes the first run instant at the cost of memory in each LeetCode tab.</p>
+    <span id="saved">Saved</span>
+    <script src="options.js"></script>
+  </body>
+</html>

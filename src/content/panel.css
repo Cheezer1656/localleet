@@ -1,0 +1,412 @@
+:host {
+  all: initial;
+}
+
+.panel {
+  /* LeetCode's light tokens: label-1, label-3, fill-2/3/4, green-s, red-s. */
+  --bg: #ffffff;
+  --bg-raised: #f7f7f8;
+  --fill-2: rgba(0, 10, 32, 0.1);
+  --fill-3: rgba(0, 10, 32, 0.05);
+  --fill-4: rgba(0, 10, 32, 0.03);
+  --border: #e4e4e7;
+  --text: #262626;
+  --muted: rgba(60, 60, 67, 0.6);
+  --accent: #ffa116;
+  --good: #2db55d;
+  --bad: #ef4743;
+  --bad-mark: #f8615c;
+  --warn: #c27c0e;
+  --mono: Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;
+
+  position: fixed;
+  right: 16px;
+  bottom: 16px;
+  z-index: 2147483000;
+  width: 440px;
+  max-width: calc(100vw - 32px);
+  height: 420px;
+  min-height: 120px;
+  max-height: calc(100vh - 32px);
+  min-width: 300px;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  resize: both;
+  box-sizing: border-box;
+  background: var(--bg);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.25);
+  font: 14px/21px -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+}
+
+.panel[data-theme='dark'] {
+  --bg: #262626;
+  --bg-raised: #303030;
+  --fill-2: rgba(255, 255, 255, 0.14);
+  --fill-3: rgba(255, 255, 255, 0.1);
+  --fill-4: rgba(255, 255, 255, 0.07);
+  --border: #3d3d3d;
+  --text: #ffffff;
+  --muted: rgba(239, 242, 246, 0.6);
+  --good: #2cbb5d;
+  --bad: #ef4743;
+  --warn: #ffb800;
+}
+
+.panel[hidden] {
+  display: none;
+}
+
+.panel.collapsed {
+  height: auto !important;
+  min-height: 0;
+  resize: none;
+}
+
+.panel.collapsed .body {
+  display: none;
+}
+
+.bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px 6px 12px;
+  background: var(--bg-raised);
+  border-bottom: 1px solid var(--border);
+  cursor: grab;
+  user-select: none;
+  flex: none;
+}
+
+.bar:active {
+  cursor: grabbing;
+}
+
+.logo {
+  font-weight: 600;
+}
+
+.runtime {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--muted);
+  font-size: 12px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.spacer {
+  flex: 1;
+}
+
+button {
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+  border: none;
+  background: none;
+}
+
+button:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+.run {
+  padding: 4px 14px;
+  border-radius: 8px;
+  background: var(--accent);
+  color: #1a1a1a;
+  font-weight: 500;
+}
+
+.run:hover {
+  filter: brightness(1.08);
+}
+
+.run.cancel {
+  background: var(--fill-3);
+  color: var(--text);
+  border: 1px solid var(--border);
+}
+
+.icon {
+  width: 26px;
+  height: 26px;
+  border-radius: 6px;
+  color: var(--muted);
+}
+
+.icon:hover {
+  background: var(--fill-3);
+  color: var(--text);
+}
+
+.body {
+  flex: 1;
+  overflow: auto;
+  padding: 16px 20px;
+}
+
+.body.idle {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+}
+
+.hint,
+.notice {
+  margin: 0 0 16px;
+  color: var(--muted);
+}
+
+.summary {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 16px;
+  margin-bottom: 16px;
+}
+
+.summary strong {
+  font-size: 20px;
+  line-height: 28px;
+  font-weight: 500;
+}
+
+.summary span {
+  color: var(--muted);
+}
+
+.summary.good strong {
+  color: var(--good);
+}
+
+.summary.bad strong {
+  color: var(--bad);
+}
+
+.summary.running strong {
+  color: var(--muted);
+}
+
+.tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px 8px;
+  margin-bottom: 16px;
+}
+
+.tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 16px;
+  border-radius: 8px;
+  color: var(--muted);
+  font-weight: 500;
+}
+
+.tab:hover {
+  background: var(--fill-2);
+  color: var(--text);
+}
+
+.tab.active {
+  background: var(--fill-3);
+  color: var(--text);
+}
+
+.dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--muted);
+  flex: none;
+}
+
+.tab .dot {
+  margin: 0 3.5px;
+}
+
+.mark {
+  width: 14px;
+  height: 14px;
+  flex: none;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.mark.good {
+  color: var(--good);
+}
+
+.mark.bad {
+  color: var(--bad-mark);
+}
+
+.dot.ready,
+.dot.match,
+.dot.match-any-order {
+  background: var(--good);
+}
+
+.dot.mismatch,
+.dot.runtime_error,
+.dot.timeout,
+.dot.harness_error,
+.dot.error,
+.dot.unsupported {
+  background: var(--bad);
+}
+
+.dot.loading,
+.dot.pending {
+  background: var(--warn);
+  animation: pulse 1s ease-in-out infinite alternate;
+}
+
+.dot.ran {
+  background: var(--accent);
+}
+
+@keyframes pulse {
+  to {
+    opacity: 0.3;
+  }
+}
+
+.case {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.verdict {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 16px;
+  font-weight: 500;
+  margin-bottom: -4px;
+}
+
+.verdict.match,
+.verdict.match-any-order {
+  color: var(--good);
+}
+
+.verdict.mismatch,
+.verdict.runtime_error,
+.verdict.timeout,
+.verdict.harness_error {
+  color: var(--bad);
+}
+
+.verdict .time {
+  color: var(--muted);
+  font-weight: 400;
+}
+
+.section {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.label {
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 16px;
+  font-weight: 500;
+}
+
+.label .note {
+  margin-left: 6px;
+  font-weight: 400;
+  opacity: 0.8;
+}
+
+.box {
+  padding: 12px 0;
+  border-radius: 8px;
+  background: var(--fill-4);
+}
+
+.box-label {
+  margin: 0 12px 8px;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 16px;
+}
+
+pre {
+  margin: 0;
+  font: 14px/20px var(--mono);
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+
+.value {
+  margin: 0 12px;
+  color: var(--text);
+  max-height: 240px;
+  overflow: auto;
+}
+
+.value.error {
+  color: var(--bad);
+}
+
+.error-box {
+  padding: 12px;
+  margin-bottom: 16px;
+  border-radius: 8px;
+  color: var(--bad);
+  background: color-mix(in srgb, var(--bad) 10%, transparent);
+}
+
+/* Docked into LeetCode's tab bar (see tab.js): fill the tab, blend in. */
+.panel.docked {
+  position: static;
+  width: 100%;
+  height: 100%;
+  max-width: none;
+  max-height: none;
+  min-width: 0;
+  min-height: 0;
+  resize: none;
+  border: none;
+  border-radius: 0;
+  box-shadow: none;
+  background: transparent;
+}
+
+.panel.docked .bar {
+  cursor: default;
+  background: transparent;
+  border-bottom: none;
+  padding: 12px 20px 0;
+}
+
+.panel.docked .logo,
+.panel.docked .floating-only {
+  display: none;
+}
+
+.panel.docked .body {
+  padding: 12px 20px 16px;
+}
