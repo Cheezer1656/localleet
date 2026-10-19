@@ -13,7 +13,9 @@
     .catch(() => settings);
   api.storage.onChanged.addListener((changes, area) => {
     if (area !== 'local') return;
-    for (const [k, { newValue }] of Object.entries(changes)) settings[k] = newValue;
+    for (const [k, { newValue }] of Object.entries(changes)) {
+      if (k in DEFAULT_SETTINGS) settings[k] = newValue;
+    }
   });
 
   // ---- runner connection -----------------------------------------------------
@@ -62,7 +64,15 @@
   let runSeq = 0;
   let activeRun = null;
 
-  const panel = new LL.Panel({ onRun: () => run(), onCancel: () => cancel() });
+  const panel = new LL.Panel({
+    onRun: () => run(),
+    onCancel: () => cancel(),
+    onAddCase: (lines) => addSavedCase(lines),
+    onDismissCase: (lines) => {
+      const slug = lc.currentSlug();
+      if (slug) LL.harvest.dismiss(slug, lines);
+    },
+  });
   const tab = new LL.ResultsTab({ label: 'LocalLeet', content: panel.host, onMount: () => panel.setDocked(true) });
   panel.attachDock(tab);
   const runner = new RunnerClient(handleRunnerMessage);
@@ -144,11 +154,22 @@
       const source = state.testcases?.trim() ? state.testcases : problem.exampleTestcases;
       const cases = lc.splitTestcases(source, problem.meta);
       if (!cases.length) throw new Error('There are no testcases to run.');
-      const expectedMap = lc.expectedOutputs(problem);
-      const expected = cases.map((c) => expectedMap.get(lc.caseKey(c)) ?? null);
-      Object.assign(activeRun, { expected, anyOrder: problem.anyOrder });
+      // Expected outputs from the examples, else ones saved from LeetCode's own
+      // Run and Submit results (harvest.js).
+      const exampleMap = lc.expectedOutputs(problem);
+      const savedMap = await LL.harvest.expectedOutputs(slug);
+      if (activeRun?.id !== id) return;
+      const found = cases.map((c) => {
+        const key = lc.caseKey(c);
+        if (exampleMap.has(key)) return { output: exampleMap.get(key), source: null };
+        return savedMap.get(key) ?? null;
+      });
+      const expected = found.map((f) => f?.output ?? null);
+      const sources = found.map((f) => f?.source ?? null);
+      Object.assign(activeRun, { slug, expected, anyOrder: problem.anyOrder });
+      lastRun = { slug, cases, anyOrder: problem.anyOrder };
 
-      panel.startRun({ cases, paramNames: lc.paramNames(problem.meta), expected });
+      panel.startRun({ cases, paramNames: lc.paramNames(problem.meta), expected, sources });
       if (problem.meta.manual) {
         panel.setNotice(
           'LeetCode judges this problem with a custom checker; local output may be formatted differently.',
@@ -170,6 +191,46 @@
       panel.showError(err.message || String(err));
     }
   }
+
+  // ---- outputs saved from LeetCode's Run and Submit -------------------------
+
+  let lastRun = null; // { slug, cases, anyOrder } of the run on screen
+
+  // A LeetCode Run of the same testcases can finish after the local run
+  // started (or ended); fill in the expected outputs it revealed.
+  async function fillSavedExpected(slug) {
+    if (!lastRun || lastRun.slug !== slug) return;
+    const run = lastRun;
+    const saved = await LL.harvest.expectedOutputs(slug);
+    if (lastRun !== run) return;
+    run.cases.forEach((lines, i) => {
+      const found = saved.get(lc.caseKey(lines));
+      if (!found) return;
+      if (activeRun?.slug === slug && activeRun.expected[i] == null) activeRun.expected[i] = found.output;
+      panel.setExpected(i, found.output, found.source, (result) => verdictFor(result, found.output, run.anyOrder));
+    });
+  }
+
+  let shownSlug = null;
+  async function refreshFailedCases() {
+    const slug = lc.currentSlug();
+    shownSlug = slug;
+    if (!slug) return panel.setFailedCases([], []);
+    const [list, problem] = await Promise.all([LL.harvest.failedCases(slug), lc.fetchProblem(slug)]);
+    if (shownSlug === slug) panel.setFailedCases(list, lc.paramNames(problem.meta));
+  }
+
+  async function addSavedCase(lines) {
+    const slug = lc.currentSlug();
+    if (!slug) return null;
+    const problem = await lc.fetchProblem(slug);
+    return lc.addTestcase(lines, problem.meta);
+  }
+
+  LL.harvest.onChange((slug) => {
+    fillSavedExpected(slug).catch(() => {});
+    if (slug === lc.currentSlug()) refreshFailedCases().catch(() => {});
+  });
 
   // ---- page integration ------------------------------------------------------
 
@@ -224,10 +285,12 @@
       injectQueued = false;
       injectButton();
       tab.ensure();
+      if (lc.currentSlug() !== shownSlug) refreshFailedCases().catch(() => {});
     });
   }).observe(document.documentElement, { childList: true, subtree: true });
   injectButton();
   tab.ensure();
+  refreshFailedCases().catch(() => {});
 
   // Load the toolchain in the background so the first run is fast.
   async function warmUp() {

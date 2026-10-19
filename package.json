@@ -8,9 +8,10 @@
     "build:firefox": "node scripts/build.mjs firefox",
     "dev": "node scripts/build.mjs chrome firefox --watch",
     "package": "node scripts/build.mjs --zip",
-    "test": "npm run test:python && npm run test:cpp",
+    "test": "npm run test:python && npm run test:cpp && npm run test:content",
     "test:python": "PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s tests -v",
     "test:cpp": "node --test tests/cpp.test.mjs",
+    "test:content": "node --test tests/harvest.test.mjs",
     "lint:firefox": "npx --yes web-ext lint --source-dir dist/firefox",
     "test:firefox": "node tests/e2e-firefox.mjs"
   },

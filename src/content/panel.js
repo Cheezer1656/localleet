@@ -17,6 +17,12 @@
     pending: 'Running…',
   };
 
+  // Where an expected output came from, when not the problem's examples.
+  const SOURCE_LABEL = {
+    run: 'from LeetCode’s Run',
+    submit: 'from a failed submission',
+  };
+
   function el(tag, attrs = {}, ...children) {
     const node = document.createElement(tag);
     for (const [k, v] of Object.entries(attrs)) {
@@ -33,10 +39,14 @@
   }
 
   class Panel {
-    constructor({ onRun, onCancel }) {
+    constructor({ onRun, onCancel, onAddCase, onDismissCase }) {
       this.onRun = onRun;
       this.onCancel = onCancel;
+      this.onAddCase = onAddCase;
+      this.onDismissCase = onDismissCase;
       this.state = { phase: 'idle', cases: [], selected: 0, runtime: null, runtimeState: 'idle', diff: true };
+      // Testcases saved from failed submissions (see harvest.js).
+      this.failed = { cases: [], paramNames: [], open: false, status: new Map() };
       this.expanded = new Set(); // `${case}:${field}` keys of values shown in full
       this.overflow = new ResizeObserver((entries) => {
         for (const { target } of entries) {
@@ -171,7 +181,7 @@
 
     // ---- run lifecycle ------------------------------------------------------
 
-    startRun({ cases, paramNames, expected }) {
+    startRun({ cases, paramNames, expected, sources = [] }) {
       this.state.phase = 'running';
       this.state.error = null;
       this.state.compileError = null;
@@ -179,6 +189,7 @@
       this.state.cases = cases.map((lines, i) => ({
         lines,
         expected: expected[i] ?? null,
+        expectedSource: sources[i] ?? null,
         result: null,
         verdict: 'pending',
       }));
@@ -195,6 +206,23 @@
       if (!c) return;
       c.result = result;
       c.verdict = verdict;
+      this.renderBody();
+    }
+
+    // Fills in an expected output that became known after the run started.
+    // `verdictOf(result)` recomputes the verdict of a case that has finished.
+    setExpected(index, expected, source, verdictOf) {
+      const c = this.state.cases[index];
+      if (!c || c.expected != null) return;
+      c.expected = expected;
+      c.expectedSource = source;
+      if (c.result) c.verdict = verdictOf(c.result);
+      this.renderBody();
+    }
+
+    setFailedCases(cases, paramNames) {
+      this.failed.cases = cases;
+      this.failed.paramNames = paramNames;
       this.renderBody();
     }
 
@@ -252,7 +280,8 @@
             'p',
             { class: 'hint' },
             'Runs the testcases from LeetCode’s Testcase panel in your browser. ',
-            'Expected outputs come from the problem’s examples.',
+            'Expected outputs come from the problem’s examples, and from LeetCode’s own Run and Submit ',
+            'results for inputs you’ve run there.',
           ),
         );
       }
@@ -275,6 +304,7 @@
           parts.push(this.renderTabs(), this.renderCase(cases[this.state.selected]));
         }
       }
+      if (this.failed.cases.length) parts.push(this.renderFailedCases());
       this.body.replaceChildren(...parts);
     }
 
@@ -338,8 +368,82 @@
           ? highlightDiff(r.output, c.expected)
           : null;
       if (r && r.output != null) out.push(section('Output', box(`${at}output`, diff?.actual ?? r.output)));
-      if (c.expected != null) out.push(section('Expected', box(`${at}expected`, diff?.expected ?? c.expected)));
+      if (c.expected != null) {
+        const label = c.expectedSource ? `Expected ${SOURCE_LABEL[c.expectedSource] ?? ''}`.trim() : 'Expected';
+        out.push(section(label, box(`${at}expected`, diff?.expected ?? c.expected)));
+      }
       return el('div', { class: 'case' }, out);
+    }
+
+    // Hidden testcases that failed submissions revealed, with buttons to copy
+    // them into LeetCode's Testcase panel.
+    renderFailedCases() {
+      const { cases, paramNames, open, status } = this.failed;
+      const details = el(
+        'details',
+        { class: 'failed', open },
+        el('summary', {}, `Testcases from failed submissions (${cases.length})`),
+      );
+      details.addEventListener('toggle', () => (this.failed.open = details.open));
+      cases.forEach((c, n) => {
+        const key = c.lines.join('\n');
+        const state = status.get(key);
+        const add = async () => {
+          status.set(key, 'adding');
+          this.renderBody();
+          try {
+            const result = await this.onAddCase(c.lines);
+            status.set(key, result === 'exists' ? 'exists' : 'added');
+          } catch (err) {
+            status.set(key, `error:${err?.message ?? err}`);
+          }
+          this.renderBody();
+        };
+        const label = {
+          adding: 'Adding…',
+          added: 'Added',
+          exists: 'Already in testcases',
+        }[state];
+        const error = state?.startsWith('error:') ? state.slice(6) : null;
+        details.append(
+          el(
+            'div',
+            { class: 'failed-case' },
+            el(
+              'div',
+              { class: 'failed-head' },
+              el('span', { class: 'failed-status' }, c.submission),
+              el('span', { class: 'spacer' }),
+              el('button', { class: 'link', disabled: state === 'adding', onclick: add }, label ?? 'Add to testcases'),
+              el(
+                'button',
+                { class: 'icon', title: 'Remove from this list', onclick: () => this.onDismissCase(c.lines) },
+                '✕',
+              ),
+            ),
+            error && el('p', { class: 'notice' }, error),
+            el(
+              'div',
+              { class: 'boxes' },
+              c.lines.map((line, i) =>
+                el(
+                  'div',
+                  { class: 'box' },
+                  el('div', { class: 'box-label' }, `${paramNames[i] ?? `arg${i + 1}`} =`),
+                  this.renderValue(`failed${n}:in${i}`, line),
+                ),
+              ),
+              el(
+                'div',
+                { class: 'box' },
+                el('div', { class: 'box-label' }, 'Expected'),
+                this.renderValue(`failed${n}:expected`, c.output),
+              ),
+            ),
+          ),
+        );
+      });
+      return details;
     }
 
     // A value that LeetCode-style collapses to a few lines with "View more".

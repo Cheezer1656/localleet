@@ -10,6 +10,12 @@ WebAssembly builds of language toolchains. Python (via [Pyodide](https://pyodide
 - Runs your code from the editor against the testcases in LeetCode's **Testcase** panel, including ones you add or edit.
 - Compares each output against the **expected output from the problem's examples** when the input matches an
   example. For problems that say "in any order", it also accepts the answer in any order.
+- Remembers the expected outputs LeetCode shows when you use its own **Run** or **Submit**, so running those
+  inputs locally later gets a verdict. Run gives the expected output of every testcase you ran, custom ones
+  included. A failed Submit gives the hidden testcase it failed on. Those cases are listed under
+  *Testcases from failed submissions* in the LocalLeet tab, with a button that adds them to the Testcase panel.
+  The outputs are kept in the extension's local storage (at most 500 per problem) and can be cleared on the
+  options page.
 - Shows output, stdout and a filtered traceback per case, with LeetCode-style verdicts (Accepted, Wrong Answer,
   Runtime Error, Time Limit Exceeded, Compile Error).
 - Handles plain functions, in-place (`void`) problems, `ListNode`/`TreeNode` inputs and outputs, design problems
@@ -55,16 +61,17 @@ Everything under `src/` is shared between browsers. The only per-browser pieces 
 LeetCode tab                                     Extension context (outside the page)
 ┌──────────────────────────────────────────┐     ┌──────────────────────────────────────────┐
 │ content/page-bridge.js  (MAIN world)     │     │ runner/runner.html + runner.js           │
-│   reads Monaco code + testcase editor    │     │   Chrome: offscreen document             │
-│            ▲ postMessage                 │     │   Firefox: background page               │
+│   reads Monaco code + testcase editor,   │     │   Chrome: offscreen document             │
+│   watches LeetCode's Run/Submit results  │     │   Firefox: background page               │
+│            ▲ postMessage                 │     │                                          │
 │ content/*.js            (isolated world) │Port │                                          │
 │   leetcode.js  problem metadata (GraphQL)├────►│   one Web Worker per language, job queue,│
-│   compare.js   output vs expected        │     │   per-testcase timeout (kill + respawn)  │
-│   panel.js     results UI (shadow DOM)   │     │        │                                 │
-│   tab.js       docks it as a LeetCode tab│     │        ▼                                 │
-│   main.js      wiring, button, shortcut  │     │ languages/python/worker.js  (Pyodide)    │
-└──────────────────────────────────────────┘     │ languages/python/driver.py  (harness)    │
-                                                 │ languages/cpp/worker.js     (Clang+WASI) │
+│   harvest.js   saves LeetCode's outputs  │     │   per-testcase timeout (kill + respawn)  │
+│   compare.js   output vs expected        │     │        │                                 │
+│   panel.js     results UI (shadow DOM)   │     │        ▼                                 │
+│   tab.js       docks it as a LeetCode tab│     │ languages/python/worker.js  (Pyodide)    │
+│   main.js      wiring, button, shortcut  │     │ languages/python/driver.py  (harness)    │
+└──────────────────────────────────────────┘     │ languages/cpp/worker.js     (Clang+WASI) │
                                                  │ languages/cpp/prelude.h     (harness)    │
                                                  └──────────────────────────────────────────┘
 ```
@@ -116,8 +123,9 @@ The content scripts, panel, runner and timeouts need no changes.
 
 ## Limitations
 
-- Expected outputs are only known for inputs that match the problem's examples. LeetCode's reference solution
-  isn't available offline, so outputs for custom inputs are shown without a verdict.
+- Expected outputs are only known for inputs that match the problem's examples, or that you've run or failed a
+  submission on with LeetCode's own buttons. LeetCode's reference solution isn't available offline, so outputs
+  for other custom inputs are shown without a verdict.
 - Problems with multiple valid answers are compared as exact matches, apart from the "any order" handling above.
 - Local timings come from WebAssembly in a worker. They aren't comparable to LeetCode's runtime numbers.
 - LeetCode's "Python" (Python 2) option runs on Python 3.

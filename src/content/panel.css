@@ -449,3 +449,55 @@ pre {
 .case .error-box {
   margin: 0;
 }
+
+.failed {
+  margin-top: 24px;
+  border-top: 1px solid var(--border);
+  padding-top: 12px;
+}
+
+.failed summary {
+  cursor: pointer;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 16px;
+  font-weight: 500;
+}
+
+.failed summary:hover {
+  color: var(--text);
+}
+
+.failed-case {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 16px;
+}
+
+.failed-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.failed-status {
+  color: var(--bad);
+  font-weight: 500;
+}
+
+.link {
+  padding: 2px 8px;
+  border-radius: 6px;
+  color: var(--blue);
+  font-weight: 500;
+}
+
+.link:hover:not(:disabled) {
+  background: var(--fill-3);
+}
+
+.link:disabled {
+  color: var(--muted);
+  cursor: default;
+}

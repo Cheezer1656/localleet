@@ -120,8 +120,9 @@
     return map;
   }
 
+  // Asks page-bridge.js (MAIN world) to run `op`; resolves with the editor state.
   let requestSeq = 0;
-  function requestEditorState(timeoutMs = 1500) {
+  function bridgeRequest(op, args = {}, timeoutMs = 1500) {
     const id = `${Date.now()}-${++requestSeq}`;
     return new Promise((resolve, reject) => {
       const onMessage = (event) => {
@@ -145,8 +146,21 @@
         window.removeEventListener('message', onMessage);
       };
       window.addEventListener('message', onMessage);
-      window.postMessage(JSON.stringify({ type: 'localleet:request', id }), location.origin);
+      window.postMessage(JSON.stringify({ type: 'localleet:request', id, op, ...args }), location.origin);
     });
+  }
+
+  const requestEditorState = () => bridgeRequest('state');
+
+  // Appends a testcase to LeetCode's Testcase panel unless it's already there.
+  // Resolves to 'added' or 'exists'.
+  async function addTestcase(lines, meta) {
+    const state = await requestEditorState();
+    const current = state.testcases?.trim() ? splitTestcases(state.testcases, meta) : [];
+    const key = caseKey(lines);
+    if (current.some((c) => caseKey(c) === key)) return 'exists';
+    await bridgeRequest('add-testcase', { lines }, 5000);
+    return 'added';
   }
 
   // Monaco language ids on LeetCode match LeetCode's language slugs for most
@@ -169,6 +183,7 @@
     caseKey,
     expectedOutputs,
     requestEditorState,
+    addTestcase,
     leetcodeLang,
   };
 })();
