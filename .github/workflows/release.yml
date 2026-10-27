@@ -1,0 +1,74 @@
+name: Build release
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      # Downloaded wheels and the precompiled C++ prelude (keyed by its inputs).
+      - uses: actions/cache@v4
+        with:
+          path: .cache
+          key: build-cache-${{ hashFiles('package-lock.json', 'src/languages/cpp/**', 'scripts/build.mjs') }}
+          restore-keys: build-cache-
+
+      - run: npm ci
+
+      - name: Check tag matches manifest version
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: |
+          version=$(node -p "require('./src/manifest/base.json').version")
+          if [ "v$version" != "$GITHUB_REF_NAME" ]; then
+            echo "::error::Tag $GITHUB_REF_NAME does not match manifest version $version"
+            exit 1
+          fi
+
+      - name: Build and package Chrome and Firefox
+        run: npm run package
+
+      - name: Lint Firefox build
+        run: npm run lint:firefox
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: localleet-chrome
+          path: dist/localleet-chrome-*.zip
+          if-no-files-found: error
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: localleet-firefox
+          path: dist/localleet-firefox-*.zip
+          if-no-files-found: error
+
+  release:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+
+      - name: Create GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create "$GITHUB_REF_NAME" dist/*.zip --repo "$GITHUB_REPOSITORY" --title "$GITHUB_REF_NAME" --generate-notes
