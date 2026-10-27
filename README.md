@@ -1,5 +1,7 @@
 # LocalLeet
 
+[Firefox](https://addons.mozilla.org/en-US/firefox/addon/localleet/)
+
 **DISCLAIMER: This project was made with Claude**
 
 A browser extension for Chrome and Firefox that runs LeetCode testcases **locally, in your browser**, using
