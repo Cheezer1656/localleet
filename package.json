@@ -1,6 +1,6 @@
 {
   "name": "localleet",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Browser extension that runs LeetCode testcases locally with WebAssembly toolchains",
   "scripts": {
     "build": "node scripts/build.mjs",

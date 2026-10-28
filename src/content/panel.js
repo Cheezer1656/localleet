@@ -9,7 +9,7 @@
     match: 'Matches expected',
     'match-any-order': 'Matches expected (any order)',
     mismatch: 'Differs from expected',
-    ran: 'Ran',
+    ran: 'Ran (no expected output yet)',
     runtime_error: 'Runtime Error',
     harness_error: 'Invalid Testcase',
     timeout: 'Time Limit Exceeded',
@@ -267,7 +267,9 @@
       if (verdicts.length && verdicts.every((v) => v.startsWith('match'))) {
         return { cls: 'good', title: 'Accepted', sub };
       }
-      return { cls: 'neutral', title: 'Finished', sub };
+      const unknown = verdicts.filter((v) => v === 'ran').length;
+      const note = unknown && `${unknown} ${unknown === 1 ? 'case has' : 'cases have'} no expected output yet`;
+      return { cls: 'neutral', title: 'Finished', sub: [sub, note].filter(Boolean).join(' · ') };
     }
 
     renderBody() {
@@ -371,6 +373,19 @@
       if (c.expected != null) {
         const label = c.expectedSource ? `Expected ${SOURCE_LABEL[c.expectedSource] ?? ''}`.trim() : 'Expected';
         out.push(section(label, box(`${at}expected`, diff?.expected ?? c.expected)));
+      } else if (c.verdict === 'ran') {
+        out.push(
+          section(
+            'Expected',
+            el(
+              'p',
+              { class: 'missing-expected' },
+              'Not known yet for this testcase. Expected outputs come from the problem’s examples, so ',
+              'for a testcase you added, use LeetCode’s own Run once and LocalLeet will remember its ',
+              'expected output for future local runs.',
+            ),
+          ),
+        );
       }
       return el('div', { class: 'case' }, out);
     }

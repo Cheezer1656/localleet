@@ -321,6 +321,14 @@ button:focus-visible {
   background: var(--fill-4);
 }
 
+.missing-expected {
+  margin: 0;
+  padding: 12px;
+  border: 1px dashed var(--border);
+  border-radius: 8px;
+  color: var(--muted);
+}
+
 .box-label {
   margin: 0 12px 8px;
   color: var(--muted);
