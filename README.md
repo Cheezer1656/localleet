@@ -1,14 +1,12 @@
 # LocalLeet
 
+A browser extension for Chrome and Firefox that runs LeetCode testcases **locally, in your browser** for rapid testing
+
+[Chrome](https://github.com/Cheezer1656/localleet/releases/latest)
+|
 [Firefox](https://addons.mozilla.org/en-US/firefox/addon/localleet/)
 
-**DISCLAIMER: This project was made with Claude**
-
 ![LocalLeet running Python and C++ testcases locally on LeetCode](docs/showcase.gif)
-
-A browser extension for Chrome and Firefox that runs LeetCode testcases **locally, in your browser**, using
-WebAssembly builds of language toolchains. Python (via [Pyodide](https://pyodide.org)) and C++ (via Clang/LLD from
-[YoWASP](https://yowasp.org)) are supported, and the code is laid out so other languages can be added.
 
 - Adds a **Local** button next to LeetCode's Run button, and a shortcut: **Ctrl/⌘ + Shift + '**.
 - Shows results in a **LocalLeet** tab next to LeetCode's own *Test Result* tab. A floating panel is used only if
@@ -32,8 +30,13 @@ WebAssembly builds of language toolchains. Python (via [Pyodide](https://pyodide
   `using namespace std`, and `ListNode`/`TreeNode`. Runtime errors come out the way LeetCode's sanitizers report
   them, e.g. `Line 4: Char 18: runtime error: signed integer overflow: ...` or `member access within null pointer`.
 
-## Install
+**DISCLAIMER: This project was made with Claude**
 
+## Install
+- **Chrome**: Download the latest build from [Releases](https://github.com/Cheezer1656/localleet/releases/latest), open `chrome://extensions`, enable *Developer mode*, then drag and drop the downloaded zip file onto the page
+- **Firefox**: Install directly from Firefox Add-ons: https://addons.mozilla.org/en-US/firefox/addon/localleet/
+
+## Build it yourself
 ```sh
 npm install
 npm run build          # -> dist/chrome and dist/firefox
