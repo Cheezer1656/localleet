@@ -1,6 +1,7 @@
 # LocalLeet
 
-A browser extension for Chrome and Firefox that runs LeetCode testcases **locally, in your browser** for rapid testing
+A browser extension for Chrome and Firefox that runs LeetCode testcases (Python and C++) **locally, in your
+browser** for rapid testing.
 
 [Chrome](https://github.com/Cheezer1656/localleet/releases/latest)
 |
@@ -9,32 +10,43 @@ A browser extension for Chrome and Firefox that runs LeetCode testcases **locall
 ![LocalLeet running Python and C++ testcases locally on LeetCode](docs/showcase.gif)
 
 - Adds a **Local** button next to LeetCode's Run button, and a shortcut: **Ctrl/⌘ + Shift + '**.
-- Shows results in a **LocalLeet** tab next to LeetCode's own *Test Result* tab. A floating panel is used only if
-  that tab can't be found.
 - Runs your code from the editor against the testcases in LeetCode's **Testcase** panel, including ones you add or edit.
-- Compares each output against the **expected output from the problem's examples** when the input matches an
-  example. For problems that say "in any order", it also accepts the answer in any order.
-- Remembers the expected outputs LeetCode shows when you use its own **Run** or **Submit**, so running those
+- Shows output, stdout and a filtered traceback per case in a **LocalLeet** tab next to LeetCode's *Test Result*
+  tab, with LeetCode-style verdicts (Accepted, Wrong Answer, Runtime Error, Time Limit Exceeded, Compile Error).
+- Checks outputs against the problem's examples and against expected outputs it remembers from LeetCode's own
+  **Run** and **Submit**, including the hidden testcases of failed submissions.
+- Handles plain functions, in-place (`void`) problems, `ListNode`/`TreeNode`, design problems and the common
+  custom-judge problems.
+
+## Install
+- **Chrome**: Download the Chrome zip from [Releases](https://github.com/Cheezer1656/localleet/releases/latest)
+  and unzip it. Open `chrome://extensions`, enable *Developer mode*, choose *Load unpacked* and select the
+  unzipped folder.
+- **Firefox**: Install directly from Firefox Add-ons: https://addons.mozilla.org/en-US/firefox/addon/localleet/
+
+## Details
+
+### Results and verdicts
+- Results show in the **LocalLeet** tab. A floating panel is used only if that tab can't be found.
+- An output is compared against the **expected output from the problem's examples** when the input matches an
+  example. For problems that say "in any order", the answer is also accepted in any order.
+- When you use LeetCode's own **Run** or **Submit**, the expected outputs it shows are remembered, so running those
   inputs locally later gets a verdict. Run gives the expected output of every testcase you ran, custom ones
   included. A failed Submit gives the hidden testcase it failed on. Those cases are listed under
   *Testcases from failed submissions* in the LocalLeet tab, with a button that adds them to the Testcase panel.
   The outputs are kept in the extension's local storage (at most 500 per problem) and can be cleared on the
   options page.
-- Shows output, stdout and a filtered traceback per case, with LeetCode-style verdicts (Accepted, Wrong Answer,
-  Runtime Error, Time Limit Exceeded, Compile Error).
-- Handles plain functions, in-place (`void`) problems, `ListNode`/`TreeNode` inputs and outputs, design problems
-  (`["LRUCache","put",...]`), and the common custom-judge problems (linked list cycle, intersection, LCA, clone
-  graph).
-- Mirrors LeetCode's Python environment: the usual standard-library star imports, `typing`, and `sortedcontainers`.
-- Mirrors LeetCode's C++ environment: C++23 at `-O2`, the whole standard library (including `<bits/stdc++.h>`),
-  `using namespace std`, and `ListNode`/`TreeNode`. Runtime errors come out the way LeetCode's sanitizers report
-  them, e.g. `Line 4: Char 18: runtime error: signed integer overflow: ...` or `member access within null pointer`.
 
-**DISCLAIMER: This project was made with Claude**
-
-## Install
-- **Chrome**: Download the latest build from [Releases](https://github.com/Cheezer1656/localleet/releases/latest), open `chrome://extensions`, enable *Developer mode*, then drag and drop the downloaded zip file onto the page
-- **Firefox**: Install directly from Firefox Add-ons: https://addons.mozilla.org/en-US/firefox/addon/localleet/
+### Language support
+- Supported problem shapes: plain functions, in-place (`void`) problems, `ListNode`/`TreeNode` inputs and outputs,
+  design problems (`["LRUCache","put",...]`), and the common custom-judge problems (linked list cycle,
+  intersection, LCA, clone graph).
+- **Python** mirrors LeetCode's environment: the usual standard-library star imports, `typing`, and
+  `sortedcontainers`.
+- **C++** mirrors LeetCode's environment: C++23 at `-O2`, the whole standard library (including
+  `<bits/stdc++.h>`), `using namespace std`, and `ListNode`/`TreeNode`. Runtime errors come out the way LeetCode's
+  sanitizers report them, e.g. `Line 4: Char 18: runtime error: signed integer overflow: ...` or
+  `member access within null pointer`.
 
 ## Build it yourself
 ```sh
@@ -53,7 +65,7 @@ Settings (per-testcase time limit, and whether to preload the toolchain) are on 
 
 ```sh
 npm run dev            # watch src/ and rebuild both browsers as dev builds
-npm test               # harness unit tests: Python (CPython) and C++ (WebAssembly Clang in Node)
+npm test               # unit tests: Python harness (CPython), C++ harness (WebAssembly Clang in Node), content scripts
 npm run test:firefox   # live end-to-end test of dist/firefox in headless Firefox
 ```
 
@@ -150,3 +162,7 @@ The content scripts, panel, runner and timeouts need no changes.
     last build.
   - The toolchain adds about 130 MB to the extension: Clang/LLD with its sysroot, plus the 30 MB PCH.
 - `leetcode.cn` is matched but hasn't been tested.
+
+---
+
+**Disclaimer:** This project was made with Claude.
